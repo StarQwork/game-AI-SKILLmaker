@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创星游戏策划AI助理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ff8a50, #ff6d00);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-icon { font-size: 32px; }
+        .header h1 { font-size: 22px; font-weight: 500; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { outline: none; border-color: #1a73e8; }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-row select, .form-row input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .form-row select:focus, .form-row input:focus {
+            outline: none;
+            border-color: #1a73e8;
+        }
+        .hint { font-size: 12px; color: #666; margin-top: 8px; }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,115,232,0.4); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.active { display: block; }
+        .loading-dots { display: flex; justify-content: center; gap: 8px; }
+        .loading-dots span {
+            width: 12px;
+            height: 12px;
+            background: #1a73e8;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .results { display: none; margin-top: 20px; }
+        .results.active { display: block; }
+        .result-item { margin-bottom: 16px; }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .result-header:hover { background: #eee; }
+        .result-title { font-weight: 600; color: #333; }
+        .result-actions { display: flex; gap: 8px; }
+        .result-actions a, .result-actions button {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+        .result-actions a { background: #e3f2fd; color: #1565c0; }
+        .result-actions button { background: #fff3e0; color: #e65100; }
+        .preview-result-btn { background: #e8f5e9 !important; color: #2e7d32 !important; }
+        .result-content {
+            display: none;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 0 0 8px 8px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .result-content.active { display: block; }
+        .result-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .success-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        .download-all {
+            padding: 8px 16px;
+            background: #4caf50;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-area:hover { border-color: #1a73e8; background: #f5f5f5; }
+        .upload-area.dragover { border-color: #1a73e8; background: #e3f2fd; }
+        .upload-icon { font-size: 40px; margin-bottom: 8px; }
+        .upload-text { color: #666; font-size: 14px; }
+        .upload-hint { color: #999; font-size: 12px; margin-top: 4px; }
+        #fileInput { display: none; }
+        .document-list { margin-top: 12px; }
+        .document-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .document-info { flex: 1; }
+        .document-name { font-weight: 500; color: #333; }
+        .document-size { font-size: 12px; color: #666; }
+        .document-actions { display: flex; gap: 6px; }
+        .preview-btn {
+            padding: 6px 12px;
+            background: #e3f2fd;
+            color: #1565c0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .download-btn {
+            padding: 6px 12px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-btn {
+            padding: 6px 10px;
+            background: #ffebee;
+            color: #c62828;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn:hover {
+            background: #ffcdd2;
+        }
+        .document-preview {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .document-preview pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .error-msg {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .rag-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .rag-toggle input { width: 18px; height: 18px; }
+        .rag-toggle label { font-size: 14px; color: #333; cursor: pointer; }
+        .mode-toggle {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e8f0fe;
+        }
+        .mode-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-item:hover {
+            background: #e8f0fe;
+            border-color: #4285f4;
+        }
+        .mode-item input[type="radio"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .mode-item span {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            user-select: none;
+        }
+        .role-selection { padding: 8px 0; }
+        .role-section { margin-bottom: 16px; }
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #5f6368;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #e8f0fe;
+        }
+        .role-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+        }
+        .role-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .role-item:hover {
+            background: #e8f0fe;
+            border-color: #4285f4;
+        }
+        .role-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .role-item input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+        }
+        .role-item span {
+            font-size: 13px;
+            color: #333;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-icon">🎮</div>
+            <div>
+                <h1>创星游戏策划AI助理</h1>
+                <p>智能生成专业游戏策划方案 | RAG增强 | 文档识别</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📄 上传参考文档（可选）</div>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">点击或拖拽上传策划案文档</div>
+                <div class="upload-hint">支持 PDF、Word(.docx)、Markdown(.md) 格式</div>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.md" onchange="handleUpload(this.files[0])">
+            <div class="document-list" id="documentList"></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📝 游戏创意</div>
+            <textarea id="gameIdea" placeholder="描述您的游戏创意，例如：我想做一个猫咪咖啡店游戏，玩家可以收集各种猫咪，经营咖啡店...&#10;&#10;或者输入要拆解的游戏，例如：对《原神》进行系统拆解"></textarea>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">⚙️ 模型配置</div>
+            <div class="form-row">
+                <select id="modelPreset" onchange="onModelChange()">
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="qwen">通义千问</option>
+                    <option value="zhipu">智谱AI</option>
+                    <option value="custom">自定义</option>
+                </select>
+                <input type="password" id="apiKey" placeholder="API Key">
+            </div>
+            <p class="hint">API Key 保存在本地浏览器，刷新页面后保留</p>
+            <div id="customFields" style="display:none;">
+                <div class="form-row">
+                    <input type="text" id="modelId" placeholder="模型ID">
+                    <input type="text" id="baseUrl" placeholder="API地址">
+                </div>
+            </div>
+            <div class="rag-toggle">
+                <input type="checkbox" id="useRag" checked>
+                <label for="useRag">启用 RAG 增强上下文检索</label>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📋 策划案类型</div>
+            <div class="mode-toggle">
+                <label class="mode-item">
+                    <input type="radio" name="mode" value="create" checked onchange="onModeChange()">
+                    <span>新建模式</span>
+                </label>
+                <label class="mode-item">
+                    <input type="radio" name="mode" value="breakdown" onchange="onModeChange()">
+                    <span>拆解模式</span>
+                </label>
+            </div>
+            <div class="role-selection">
+                <div class="role-section" id="defaultSection">
+                    <div class="section-title">默认生成（新建模式必选，拆解模式禁用）</div>
+                    <div class="role-group">
+                        <label class="role-item">
+                            <input type="checkbox" value="programmer" checked id="chk-programmer">
+                            <span>程序员</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="artist" checked id="chk-artist">
+                            <span>美术师</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="audio" checked id="chk-audio">
+                            <span>音效师</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="writer" checked id="chk-writer">
+                            <span>编剧</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="role-section">
+                    <div class="section-title">额外策划案（新建模式可选，拆解模式禁用）</div>
+                    <div class="role-group">
+                        <label class="role-item">
+                            <input type="checkbox" value="system_plan" id="chk-system_plan">
+                            <span>系统策划案</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="level_plan" id="chk-level_plan">
+                            <span>关卡策划案</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="combat_plan" id="chk-combat_plan">
+                            <span>战斗策划案</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="role-section">
+                    <div class="section-title">拆解案（拆解模式可选，新建模式禁用）</div>
+                    <div class="role-group">
+                        <label class="role-item">
+                            <input type="checkbox" value="system_breakdown" id="chk-system_breakdown">
+                            <span>系统拆解案</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="level_breakdown" id="chk-level_breakdown">
+                            <span>关卡拆解案</span>
+                        </label>
+                        <label class="role-item">
+                            <input type="checkbox" value="combat_breakdown" id="chk-combat_breakdown">
+                            <span>战斗拆解案</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <button class="btn" id="generateBtn" onclick="generate()">
+                <span>✨</span> 生成策划案
+            </button>
+            <div class="loading" id="loading">
+                <div class="loading-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <p style="margin-top:12px;color:#5f6368;">正在生成...</p>
+            </div>
+        </div>
+        
+        <div class="results" id="results">
+            <div class="card">
+                <div class="card-title">📄 生成结果</div>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleUpload(file);
+        });
+        
+        function handleUpload(file) {
+            if (!file) return;
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['pdf', 'docx', 'doc', 'md'].includes(ext)) {
+                alert('只支持 PDF、Word 和 Markdown 文档');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateDocumentList();
+                    alert('文档上传成功！');
+                } else {
+                    alert('上传失败: ' + data.error);
+                }
+            })
+            .catch(e => alert('上传出错: ' + e));
+        }
+        
+        function updateDocumentList() {
+            fetch('/api/documents')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.documents.length > 0) {
+                        let html = '';
+                        data.documents.forEach((doc, i) => {
+                            html += `
+                                <div class="document-item" id="docItem${i}">
+                                    <div class="document-info">
+                                        <div class="document-name">📄 ${doc.filename}</div>
+                                        <div class="document-size">${doc.text_length} 字符</div>
+                                    </div>
+                                    <div class="document-actions">
+                                        <button class="preview-btn" onclick="previewDocument(${i})">预览</button>
+                                        <button class="download-btn" onclick="downloadDocument(${i})">下载</button>
+                                        <button class="delete-btn" onclick="removeDocument(${i})" title="删除">🗑️</button>
+                                    </div>
+                                </div>
+                                <div class="document-preview" id="preview${i}" style="display:none;">
+                                    <pre>${escapeHtml(doc.text || doc.text_preview)}</pre>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('documentList').innerHTML = html;
+                        window.uploadedDocs = data.documents;
+                    } else {
+                        document.getElementById('documentList').innerHTML = '';
+                    }
+                });
+        }
+        
+        function previewDocument(i) {
+            const preview = document.getElementById('preview' + i);
+            if (preview) {
+                preview.style.display = preview.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        
+        function downloadDocument(i) {
+            if (!window.uploadedDocs || !window.uploadedDocs[i]) return;
+            const doc = window.uploadedDocs[i];
+            const blob = new Blob([doc.text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = doc.filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function removeDocument(i) {
+            fetch('/api/document/' + i, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        updateDocumentList();
+                    } else {
+                        alert('删除失败: ' + data.error);
+                    }
+                });
+        }
+        
+        function onModelChange() {
+            const preset = document.getElementById('modelPreset').value;
+            document.getElementById('customFields').style.display = preset === 'custom' ? 'block' : 'none';
+        }
+        
+        function onModeChange() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const defaultSection = document.getElementById('defaultSection');
+            const defaultCheckboxes = defaultSection.querySelectorAll('input[type="checkbox"]');
+            const planCheckboxes = document.querySelectorAll('#chk-system_plan, #chk-level_plan, #chk-combat_plan');
+            const breakdownCheckboxes = document.querySelectorAll('#chk-system_breakdown, #chk-level_breakdown, #chk-combat_breakdown');
+            
+            if (mode === 'create') {
+                defaultCheckboxes.forEach(cb => {
+                    cb.checked = true;
+                    cb.disabled = false;
+                });
+                planCheckboxes.forEach(cb => cb.disabled = false);
+                breakdownCheckboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.disabled = true;
+                });
+            } else {
+                defaultCheckboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.disabled = true;
+                });
+                planCheckboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.disabled = true;
+                });
+                breakdownCheckboxes.forEach(cb => cb.disabled = false);
+            }
+        }
+        
+        function generate() {
+            const gameIdea = document.getElementById('gameIdea').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const modelPreset = document.getElementById('modelPreset').value;
+            const modelId = document.getElementById('modelId').value.trim();
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const useRag = document.getElementById('useRag').checked;
+            
+            const selectedRoles = [];
+            document.querySelectorAll('.role-item input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedRoles.push(checkbox.value);
+            });
+            
+            if (gameIdea.length < 3) {
+                alert('请输入游戏创意');
+                return;
+            }
+            if (!apiKey) {
+                alert('请输入API Key');
+                return;
+            }
+            if (selectedRoles.length === 0) {
+                alert('请至少选择一个策划案类型');
+                return;
+            }
+            
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('results').classList.remove('active');
+            
+            fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    game_idea: gameIdea,
+                    api_key: apiKey,
+                    model_preset: modelPreset,
+                    model_id: modelId,
+                    base_url: baseUrl,
+                    use_rag: useRag,
+                    roles: selectedRoles
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('loading').classList.remove('active');
+                
+                if (data.success) {
+                    showResults(data.saved_files);
+                } else {
+                    showError(data.error || '生成失败，请稍后重试');
+                }
+            })
+            .catch(e => {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('loading').classList.remove('active');
+                let errorMsg = '网络请求失败';
+                if (e.message && e.message.includes('fetch')) {
+                    errorMsg = '无法连接到服务器，请检查服务是否启动';
+                } else if (e.message) {
+                    errorMsg = e.message;
+                }
+                showError(errorMsg);
+            });
+        }
+        
+        function showResults(files) {
+            let html = '';
+            files.forEach((f, i) => {
+                html += `
+                    <div class="result-item">
+                        <div class="result-header" onclick="toggleResult(${i})">
+                            <span class="result-title">${f.role}</span>
+                            <div class="result-actions">
+                                <button class="preview-result-btn" onclick="event.stopPropagation(); toggleResult(${i})">预览</button>
+                                <a href="/api/download/${f.filename}" download>下载</a>
+                                <button onclick="event.stopPropagation(); copyText(${i})">复制</button>
+                            </div>
+                        </div>
+                        <div class="result-content" id="result${i}">
+                            <pre>${escapeHtml(f.content)}</pre>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                <div class="success-footer">
+                    <span>✅ 生成完成，共 ${files.length} 个文件</span>
+                    <a class="download-all" href="/api/download-zip" download>打包下载</a>
+                </div>
+            `;
+            
+            document.getElementById('resultContent').innerHTML = html;
+            document.getElementById('results').classList.add('active');
+        }
+        
+        function toggleResult(i) {
+            document.getElementById('result' + i).classList.toggle('active');
+        }
+        
+        function copyText(i) {
+            const text = document.querySelector('#result' + i + ' pre').textContent;
+            navigator.clipboard.writeText(text);
+            alert('已复制');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-msg';
+            errorDiv.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:20px;">⚠️</span>
+                    <div>
+                        <div style="font-weight:600;">生成失败</div>
+                        <div style="font-size:13px;margin-top:4px;">${escapeHtml(message)}</div>
+                    </div>
+                </div>
+                <button onclick="this.parentElement.remove()" style="margin-top:8px;padding:6px 12px;background:#c62828;color:white;border:none;border-radius:4px;cursor:pointer;">关闭</button>
+            `;
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.container').children[1]);
+            setTimeout(() => errorDiv.remove(), 10000);
+        }
+        
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey) {
+                localStorage.setItem('gamePlanApiKey', apiKey);
+            } else {
+                localStorage.removeItem('gamePlanApiKey');
+            }
+        }
+        
+        function loadApiKey() {
+            const savedKey = localStorage.getItem('gamePlanApiKey');
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+            }
+        }
+        
+        function saveSettings() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const useRag = document.getElementById('useRag').checked;
+            localStorage.setItem('gamePlanMode', mode);
+            localStorage.setItem('gamePlanUseRag', useRag);
+        }
+        
+        function loadSettings() {
+            const savedMode = localStorage.getItem('gamePlanMode');
+            const savedUseRag = localStorage.getItem('gamePlanUseRag');
+            
+            if (savedMode) {
+                const modeRadio = document.querySelector(`input[name="mode"][value="${savedMode}"]`);
+                if (modeRadio) {
+                    modeRadio.checked = true;
+                    onModeChange();
+                }
+            }
+            
+            if (savedUseRag !== null) {
+                document.getElementById('useRag').checked = savedUseRag === 'true';
+            }
+        }
+        
+        document.getElementById('apiKey').addEventListener('input', saveApiKey);
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', saveSettings);
+        });
+        document.getElementById('useRag').addEventListener('change', saveSettings);
+        
+        loadApiKey();
+        loadSettings();
+        updateDocumentList();
+    </script>
+</body>
+</html>

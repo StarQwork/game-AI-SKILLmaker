@@ -1,0 +1,26 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Generated outputs
+游戏任务书/
+*.zip
+
+# Logs
+*.log
+
+# Misc
+.pytest_cache/
+site-packages/
