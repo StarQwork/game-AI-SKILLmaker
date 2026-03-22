@@ -38,12 +38,12 @@ def call_api(
         "model": model_id,
         "messages": [{"role": "user", "content": question}],
         "temperature": 0.7,
-        "max_tokens": 2000
+        "max_tokens": 4000
     }
     
     for attempt in range(max_retries):
         try:
-            response = requests.post(base_url, headers=headers, json=data, timeout=60)
+            response = requests.post(base_url, headers=headers, json=data, timeout=120)
             
             if response.status_code == 200:
                 return response.json()["choices"][0]["message"]["content"]

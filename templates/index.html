@@ -457,7 +457,8 @@
                 <div class="loading-dots">
                     <span></span><span></span><span></span>
                 </div>
-                <p style="margin-top:12px;color:#5f6368;">正在生成...</p>
+                <p style="margin-top:12px;color:#5f6368;" id="loadingText">正在生成中，请耐心等待...</p>
+                <p style="margin-top:8px;color:#999;font-size:12px;" id="loadingHint">AI 正在思考，通常需要 30-60 秒</p>
             </div>
         </div>
         
@@ -644,6 +645,9 @@
             document.getElementById('loading').classList.add('active');
             document.getElementById('results').classList.remove('active');
             
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+            
             fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -655,10 +659,12 @@
                     base_url: baseUrl,
                     use_rag: useRag,
                     roles: selectedRoles
-                })
+                }),
+                signal: controller.signal
             })
             .then(r => r.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 document.getElementById('generateBtn').disabled = false;
                 document.getElementById('loading').classList.remove('active');
                 
@@ -669,9 +675,10 @@
                 }
             })
             .catch(e => {
+                clearTimeout(timeoutId);
                 document.getElementById('generateBtn').disabled = false;
                 document.getElementById('loading').classList.remove('active');
-                let errorMsg = '网络请求失败';
+                let errorMsg = e.name === 'AbortError' ? '请求超时，请稍后重试' : '网络请求失败';
                 if (e.message && e.message.includes('fetch')) {
                     errorMsg = '无法连接到服务器，请检查服务是否启动';
                 } else if (e.message) {
