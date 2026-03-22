@@ -6,24 +6,27 @@
 
 ## 功能实现总览
 
-- 策划案生成
+- **策划案生成**
   - 默认四案：程序员/美术师/音效师/编剧，按 SKILL 标准输出结构化 Markdown
   - 可选策划/拆解：系统/关卡/战斗策划案与对应拆解案
-  - 并发生成：线程池并发请求，按角色顺序稳定返回；失败项汇总错误信息
-  - 文件落盘：保存到“游戏任务书/”，支持单个下载与 ZIP 打包
-- 模型支持
+  - 并发生成：线程池并发请求（最大6线程），按角色顺序稳定返回；失败项汇总错误信息
+  - 文件落盘：保存到"游戏任务书/"，支持单个下载与 ZIP 打包
+- **模型支持**
   - 预设 DeepSeek/OpenAI/通义千问/智谱AI，自定义 Base URL 与 Model ID
   - 带指数退避与错误映射的请求重试
-- RAG 检索增强（可选）
+  - API 超时：120秒，max_tokens：4000
+- **RAG 检索增强（可选）**
   - LangChain + FAISS 内置知识库；支持用户上传文档扩展
   - 后台线程初始化；未安装依赖自动降级为关闭
-- OCR 文档识别（可选）
+  - 网络超时30秒，初始化失败自动降级
+- **OCR 文档识别（可选）**
   - 支持 PDF/Word/Markdown，解析文本作为 RAG/提示参考
   - 文档列表支持预览、删除与清空
-- MCP 协议
+- **MCP 协议**
   - 提供 tools/list 与 tools/call，外部 Agent 可远程调用生成与上传
-- 清理与稳健性
+- **清理与稳健性**
   - 启动/退出时清理生成文件与上传记录；异常时返回一致性错误信息
+  - 跨平台兼容：支持 Windows/Linux/macOS，自动适配信号处理
 
 ## 核心功能
 
@@ -71,46 +74,69 @@
 ## 项目结构
 
 ```
-AIcehuazhuli/
-├── game_helper.py      # 主入口（CLI/Web/MCP）
-├── core.py             # 核心生成逻辑
-├── web_app.py          # Flask Web 服务
-├── rag_knowledge.py    # RAG 知识库模块
-├── ocr_handler.py      # OCR 文档识别模块
-├── mcp_server.py       # MCP 协议服务
-├── start.py            # 快速启动脚本
-├── templates/
-│   └── index.html      # 前端页面
-└── 创星游戏策划AI助理.md  # 需求文档
+game-AI-SKILLmaker/
+├── app/                      # 应用主目录
+│   ├── __init__.py
+│   ├── api/                  # API路由层
+│   │   ├── __init__.py
+│   │   └── routes.py         # Flask Web API端点
+│   ├── core/                 # 核心业务逻辑
+│   │   ├── __init__.py
+│   │   ├── config.py         # 全局配置（模型预设、输出目录）
+│   │   ├── templates.py      # 策划案角色模板定义
+│   │   ├── api_client.py     # AI模型API客户端
+│   │   └── generator.py      # 策划案生成器（并发、排序、文件落盘）
+│   ├── services/             # 服务层
+│   │   ├── __init__.py
+│   │   ├── rag_service.py    # RAG知识库服务（LangChain/FAISS/Embeddings）
+│   │   ├── ocr_service.py    # OCR文档解析服务（PDF/Word/Markdown）
+│   │   └── mcp_service.py    # MCP协议服务（tools/list、tools/call）
+│   └── utils/                # 工具函数
+│       ├── __init__.py
+│       └── cleanup.py        # 清理函数
+├── templates/                # 前端模板
+│   └── index.html            # Web界面
+├── scripts/                  # 脚本工具
+│   └── deploy.ps1            # Windows一键部署脚本
+├── .trae/skills/             # SKILL文件
+│   └── project-env-setup/
+│       └── SKILL.md          # 环境安装SKILL
+├── main.py                   # 主入口
+├── README.md
+└── 创星游戏策划AI助理.md      # 详细技术文档
 ```
 
 ## 运行方式
 
 ### 安装依赖
 ```bash
+# 基础依赖
 pip install flask requests
-pip install langchain-community langchain-core langchain-text-splitters faiss-cpu sentence-transformers
+
+# OCR 文档识别（可选）
 pip install pymupdf python-docx
+
+# RAG 检索增强（可选）
+pip install langchain-community langchain-core langchain-text-splitters faiss-cpu sentence-transformers
 ```
 
 ### 启动服务
 ```bash
-# 快速启动（推荐，端口 8001）
-python start.py
-
-# 直接运行 Web（端口 5000）
-python web_app.py
+# Web模式（默认端口 8001）
+python main.py
 
 # 命令行模式
-python game_helper.py
+python main.py --cli
 
-# MCP 服务（需要 STDIN 驱动）
-python mcp_server.py
+# MCP服务模式
+python main.py --mcp
+
+# 指定端口
+python main.py --port 9000
 ```
 
 ### 访问地址
-- Web 界面（start.py）：http://127.0.0.1:8001
-- Web 界面（web_app.py）：http://127.0.0.1:5000
+- Web 界面：http://127.0.0.1:8001
 
 ## API 接口
 
@@ -185,25 +211,28 @@ GET /api/models
 - **Python 3.8+**
 - **Flask**：Web 框架
 - **Requests**：HTTP 请求
-- **concurrent.futures**：线程池并发
+- **concurrent.futures**：线程池并发（最大6线程）
 
 ### 前端
 - **HTML5**：页面结构
 - **CSS3**：样式设计（蓝橘色主题、对话框布局）
 - **JavaScript**：交互逻辑
 - **localStorage**：本地存储 API Key
+- **AbortController**：请求超时控制（180s）
 
 ### AI
 - 支持多种大模型 API（DeepSeek、OpenAI、通义千问、智谱AI 等）
 - 自定义模型支持
 - 模型请求：指数退避与错误映射，提升稳定性
+- API 超时：120秒，max_tokens：4000
 
 ### RAG
-- **LangChain**：LLM 应用框架
+- **LangChain Community**：LLM 应用框架
 - **FAISS**：向量数据库
 - **HuggingFace Embeddings**：文本向量化
 - **sentence-transformers**：句子嵌入
 - 可用性：后台初始化，缺依赖自动禁用
+- 网络超时：30秒
 
 ### OCR
 - **PyMuPDF**：PDF 文档解析
@@ -223,7 +252,7 @@ GET /api/models
     ↓
 启用 RAG（可选）→ 检索相关知识增强上下文
     ↓
-并行调用 AI（线程池）生成选定的策划案，按角色稳定排序
+并行调用 AI（线程池，最大6线程）生成选定的策划案，按角色稳定排序
     ↓
 保存为 Markdown 文件 → 返回前端展示
     ↓
@@ -249,7 +278,7 @@ OCR 解析提取文本内容
     ↓
 清理旧的生成文件
     ↓
-初始化 RAG 知识库（后台）
+初始化 RAG 知识库（后台线程，超时30秒）
     ↓
 启动 Flask Web 服务
     ↓
@@ -258,7 +287,7 @@ OCR 解析提取文本内容
 
 ### 4. 服务关闭流程
 ```
-收到关闭信号
+收到关闭信号（Windows/Linux/macOS 自动适配）
     ↓
 清理生成的策划案文件
     ↓
@@ -301,12 +330,19 @@ OCR 解析提取文本内容
 - 自定义模型配置（模型ID、API地址）
 - RAG 开关
 
+## 性能优化
+
+- **并发生成**：最大6线程并发，按角色顺序稳定返回
+- **API 超时**：120秒请求超时，max_tokens 4000
+- **前端控制**：180秒超时自动中断，带进度提示
+- **RAG 优化**：网络超时30秒，初始化失败自动降级
+
 ## SKILL 与一键部署
 
 - 环境安装 SKILL：`.trae/skills/project-env-setup/SKILL.md`
-  - 为 IDE/CI 提供“打开仓库即安装并启动”的步骤指南
-- Windows 一键脚本：`tools/deploy.ps1`（可选安装 OCR/RAG）
-  - 示例：`.\tools\deploy.ps1 -InstallOCR -InstallRAG` 或直接 `.\tools\deploy.ps1`
+  - 为 IDE/CI 提供"打开仓库即安装并启动"的步骤指南
+- Windows 一键脚本：`scripts/deploy.ps1`（可选安装 OCR/RAG）
+  - 示例：`.\scripts\deploy.ps1 -InstallOCR -InstallRAG` 或直接 `.\scripts\deploy.ps1`
 
 ## 注意事项
 
@@ -316,3 +352,4 @@ OCR 解析提取文本内容
 4. API Key 保存在浏览器 localStorage，刷新页面后保留
 5. 关闭服务会自动清理所有临时文件和记录
 6. 服务启动时会自动清理上次残留的生成文件
+7. 支持 Windows/Linux/macOS 跨平台运行，自动适配信号处理
