@@ -52,6 +52,4 @@ def signal_handler(signum=None, frame=None):
 
 def register_cleanup():
     """注册清理函数"""
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    atexit.register(cleanup_handler)
+    pass

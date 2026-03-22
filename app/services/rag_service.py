@@ -81,6 +81,9 @@ class RAGKnowledgeBase:
         
         try:
             print("初始化RAG知识库...")
+            import socket
+            socket.setdefaulttimeout(30)
+            
             self.embeddings = HuggingFaceEmbeddings(
                 model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 model_kwargs={'device': 'cpu'}
@@ -95,7 +98,8 @@ class RAGKnowledgeBase:
             print("RAG知识库初始化成功")
             return True
         except Exception as e:
-            print(f"RAG初始化失败: {e}")
+            print(f"RAG初始化失败（将禁用RAG功能）: {e}")
+            self.is_initialized = False
             return False
     
     def add_document(self, content: str, source: str = "user_upload") -> bool:

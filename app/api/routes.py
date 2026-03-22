@@ -62,9 +62,6 @@ def cleanup():
     print("清理完成")
 
 
-atexit.register(cleanup)
-
-
 @app.route('/')
 def index():
     """首页"""
@@ -248,7 +245,7 @@ def run_web_app(host='0.0.0.0', port=5000, debug=False):
     
     if os.name != 'nt':
         signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
     
     print(f"服务启动: http://{host}:{port}")
     print("正在初始化RAG知识库（后台运行）...")
@@ -256,7 +253,4 @@ def run_web_app(host='0.0.0.0', port=5000, debug=False):
     rag_thread = threading.Thread(target=init_rag, daemon=True)
     rag_thread.start()
     
-    try:
-        app.run(host=host, port=port, debug=True, use_reloader=False)
-    finally:
-        cleanup()
+    app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
