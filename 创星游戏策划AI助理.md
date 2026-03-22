@@ -94,6 +94,11 @@ game-AI-SKILLmaker/
 │   └── utils/                # 工具函数
 │       ├── __init__.py
 │       └── cleanup.py        # 清理函数
+├── knowledge_base/           # SKILL知识库（向量检索）
+│   ├── game-plan-programmer.md   # 程序员策划案SKILL
+│   ├── game-plan-artist.md       # 美术师策划案SKILL
+│   ├── game-plan-audio.md        # 音效师策划案SKILL
+│   └── game-plan-writer.md       # 编剧策划案SKILL
 ├── templates/                # 前端模板
 │   └── index.html            # Web界面
 ├── scripts/                  # 脚本工具
