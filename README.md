@@ -10,7 +10,40 @@
 - RAG 检索增强（可选）：LangChain + FAISS + Embeddings，用户上传文档扩展
 - OCR 文档识别（可选）：PDF/Word/Markdown 解析
 - MCP 工具：对接外部 Agent 的 tools/list、tools/call
-- 文件落盘与清理：保存“游戏任务书/”，支持单个下载与 ZIP 打包，启动/退出清理
+- 文件落盘与清理：保存"游戏任务书/"，支持单个下载与 ZIP 打包，启动/退出清理
+
+## 项目结构
+
+```
+game-AI-SKILLmaker/
+├── app/                      # 应用主目录
+│   ├── api/                 # API路由层
+│   │   ├── __init__.py
+│   │   └── routes.py        # Flask Web API端点
+│   ├── core/                # 核心业务逻辑
+│   │   ├── __init__.py
+│   │   ├── config.py        # 全局配置（模型预设、输出目录）
+│   │   ├── templates.py     # 策划案角色模板定义
+│   │   ├── api_client.py    # AI模型API客户端
+│   │   └── generator.py     # 策划案生成器（并发、排序、文件落盘）
+│   ├── services/            # 服务层
+│   │   ├── __init__.py
+│   │   ├── rag_service.py   # RAG知识库服务（LangChain/FAISS/Embeddings）
+│   │   ├── ocr_service.py   # OCR文档解析服务（PDF/Word/Markdown）
+│   │   └── mcp_service.py   # MCP协议服务（tools/list、tools/call）
+│   └── utils/               # 工具函数
+│       ├── __init__.py
+│       └── cleanup.py       # 清理函数
+├── templates/               # 前端模板
+│   └── index.html           # Web界面
+├── scripts/                 # 脚本工具
+│   └── deploy.ps1           # Windows一键部署脚本
+├── config/                  # 配置文件目录
+├── static/                  # 静态资源目录
+├── main.py                  # 主入口
+├── README.md
+└── .trae/skills/            # SKILL文件
+```
 
 ## 技术栈
 - 后端：Python 3.8+、Flask、Requests、concurrent.futures（线程池并发）
@@ -43,20 +76,25 @@ pip install langchain-community langchain-core langchain-text-splitters faiss-cp
 
 3) 启动服务
 ```bash
-# 推荐（端口 8001）
-python start.py
+# Web模式（端口 8001）
+python main.py
 
-# 或直接运行（端口 5000）
-python web_app.py
+# 命令行模式
+python main.py --cli
+
+# MCP服务模式
+python main.py --mcp
+
+# 指定端口
+python main.py --port 9000
 ```
 
 4) 访问地址
-- http://127.0.0.1:8001 （start.py）
-- http://127.0.0.1:5000 （web_app.py）
+- http://127.0.0.1:8001 （默认）
 
 ## 环境安装 SKILL 与一键脚本
 - SKILL：.trae/skills/project-env-setup/SKILL.md（IDE/CI 打开仓库时调用，自动装好环境并启动）
-- Windows：tools/deploy.ps1（-InstallOCR/-InstallRAG 可选）
+- Windows：scripts/deploy.ps1（-InstallOCR/-InstallRAG 可选）
 
 ## API 速览
 - POST /api/generate：生成策划案（支持 roles、use_rag、自定义模型）
@@ -66,19 +104,6 @@ python web_app.py
 - GET /api/download-zip：打包下载所有产出
 - GET /api/models：获取模型预设
 
-## 目录结构
-```
-AIcehuazhuli/
-├── core.py            # 核心生成（并发、排序、文件落盘、错误映射）
-├── web_app.py         # Flask Web 服务（API、打包下载、清理）
-├── rag_knowledge.py   # RAG（LangChain/FAISS/Embeddings，后台初始化与降级）
-├── ocr_handler.py     # OCR（PDF/Word/Markdown 解析与文档管理）
-├── mcp_server.py      # MCP 服务（tools/list、tools/call）
-├── start.py           # 快速启动（固定端口 8001，含启动前清理）
-├── templates/index.html
-└── .trae/skills/project-env-setup/SKILL.md
-```
-
 ## MCP 工具
 - generate_game_plan：根据想法生成策划案（参数：game_idea、api_key、model_id、base_url）
 - get_roles：获取可生成角色列表
@@ -86,4 +111,3 @@ AIcehuazhuli/
 
 ## 许可证
 未指定许可证，若需开源协议可后续补充（MIT/Apache-2.0 等）。
-

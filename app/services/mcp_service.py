@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-MCP协议服务 - 兼容其他Agent调用
+MCP服务模块 - Model Context Protocol服务
+支持外部Agent调用
 """
 
 import json
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
+from app.core import generate_game_plan, ROLE_TEMPLATES
+
 
 class MCPServer:
+    """MCP协议服务器"""
+    
     def __init__(self):
         self.tools = [
             {
@@ -44,6 +50,15 @@ class MCPServer:
         ]
     
     def handle_request(self, request: Dict) -> Dict:
+        """
+        处理MCP请求
+        
+        Args:
+            request: MCP请求字典
+        
+        Returns:
+            MCP响应字典
+        """
         method = request.get("method", "")
         params = request.get("params", {})
         request_id = request.get("id")
@@ -57,7 +72,6 @@ class MCPServer:
                 arguments = params.get("arguments", {})
                 
                 if tool_name == "generate_game_plan":
-                    from core import generate_game_plan
                     result = generate_game_plan(
                         arguments.get("game_idea"),
                         arguments.get("api_key"),
@@ -67,12 +81,11 @@ class MCPServer:
                     return {"jsonrpc": "2.0", "id": request_id, "result": result}
                 
                 elif tool_name == "get_roles":
-                    from core import ROLE_TEMPLATES
                     roles = [{"key": k, "name": v["role_name"]} for k, v in ROLE_TEMPLATES.items()]
                     return {"jsonrpc": "2.0", "id": request_id, "result": {"roles": roles}}
                 
                 elif tool_name == "upload_document":
-                    from rag_knowledge import add_document
+                    from app.services.rag_service import add_document
                     success = add_document(arguments.get("content"), arguments.get("source", "mcp"))
                     return {"jsonrpc": "2.0", "id": request_id, "result": {"success": success}}
                 
@@ -86,6 +99,7 @@ class MCPServer:
             return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32603, "message": str(e)}}
     
     def run(self):
+        """运行MCP服务器"""
         print("MCP服务启动，等待输入...")
         for line in sys.stdin:
             line = line.strip()
@@ -99,9 +113,8 @@ class MCPServer:
             except json.JSONDecodeError as e:
                 print(json.dumps({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"JSON解析错误: {e}"}}), flush=True)
 
+
 def run_mcp_server():
+    """启动MCP服务器"""
     server = MCPServer()
     server.run()
-
-if __name__ == "__main__":
-    run_mcp_server()

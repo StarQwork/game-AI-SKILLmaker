@@ -52,5 +52,5 @@ if ($InstallRAG) {
 
 if (-not $NoStart) {
   Write-Step "启动服务"
-  & python start.py
+  & python main.py
 }

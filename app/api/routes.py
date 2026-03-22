@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Flask Web前端 - 集成RAG/OCR/MCP
+路由模块 - Flask Web API路由
 """
 
 from flask import Flask, render_template, request, jsonify, send_file
@@ -11,31 +11,22 @@ import zipfile
 import tempfile
 import atexit
 import signal
+import threading
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from core import generate_game_plan, ROLE_TEMPLATES, OUTPUT_DIR, init_rag
+from app.core import (
+    generate_game_plan, ROLE_TEMPLATES, OUTPUT_DIR,
+    get_available_roles, get_default_roles, MODEL_PRESETS
+)
+from app.core.api_client import resolve_model
+from app.core.generator import init_rag
+from app.core.config import OUTPUT_DIR_ABS, BASE_DIR
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR_ABS = os.path.join(BASE_DIR, OUTPUT_DIR)
-
-app = Flask(__name__)
-
-MODEL_PRESETS = {
-    "deepseek": {"name": "DeepSeek", "model_id": "deepseek-chat", "base_url": "https://api.deepseek.com/v1/chat/completions"},
-    "openai": {"name": "OpenAI", "model_id": "gpt-4o", "base_url": "https://api.openai.com/v1/chat/completions"},
-    "qwen": {"name": "通义千问", "model_id": "qwen-turbo", "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"},
-    "zhipu": {"name": "智谱AI", "model_id": "glm-4", "base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions"},
-    "custom": {"name": "自定义", "model_id": "", "base_url": ""}
-}
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+app = Flask(__name__, template_folder=TEMPLATE_DIR)
 
 temp_files = []
 reference_content = ""
 
-def resolve_model(model_preset: str, model_id: str, base_url: str):
-    if model_preset in MODEL_PRESETS and model_preset != 'custom':
-        preset = MODEL_PRESETS[model_preset]
-        return model_id or preset['model_id'], base_url or preset['base_url']
-    return model_id or "deepseek-chat", base_url or "https://api.deepseek.com/v1/chat/completions"
 
 def cleanup():
     """清理临时文件和记录"""
@@ -60,13 +51,8 @@ def cleanup():
                 time.sleep(0.5)
     
     try:
-        from ocr_handler import clear_uploaded_documents
+        from app.services import clear_uploaded_documents, clear_documents
         clear_uploaded_documents()
-    except:
-        pass
-    
-    try:
-        from rag_knowledge import clear_documents
         clear_documents()
     except:
         pass
@@ -75,14 +61,19 @@ def cleanup():
     reference_content = ""
     print("清理完成")
 
+
 atexit.register(cleanup)
+
 
 @app.route('/')
 def index():
+    """首页"""
     return render_template('index.html')
+
 
 @app.route('/api/generate', methods=['POST'])
 def api_generate():
+    """生成策划案API"""
     global reference_content
     data = request.get_json()
     game_idea = data.get('game_idea', '')
@@ -101,17 +92,23 @@ def api_generate():
     
     model_id, base_url = resolve_model(model_preset, model_id, base_url)
     
-    result = generate_game_plan(game_idea, api_key, model_id, base_url, use_rag=use_rag, reference_content=reference_content, roles=roles)
+    result = generate_game_plan(
+        game_idea, api_key, model_id, base_url,
+        use_rag=use_rag, reference_content=reference_content, roles=roles
+    )
     return jsonify(result)
+
 
 @app.route('/api/models', methods=['GET'])
 def api_models():
+    """获取模型预设列表"""
     return jsonify({'models': MODEL_PRESETS})
+
 
 @app.route('/api/roles', methods=['GET'])
 def api_roles():
+    """获取角色列表"""
     try:
-        from core import get_available_roles, get_default_roles
         return jsonify({
             'success': True,
             'roles': get_available_roles(),
@@ -120,8 +117,10 @@ def api_roles():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
+    """上传文档API"""
     global reference_content
     
     if 'file' not in request.files:
@@ -132,14 +131,14 @@ def api_upload():
         return jsonify({'success': False, 'error': '没有选择文件'})
     
     try:
-        from ocr_handler import process_upload_file
+        from app.services import process_upload_file
         result = process_upload_file(file)
         
         if result['success']:
             reference_content = result['text']
             
             try:
-                from rag_knowledge import add_document
+                from app.services import add_document
                 add_document(result['text'], result['filename'])
             except:
                 pass
@@ -155,19 +154,23 @@ def api_upload():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
 @app.route('/api/documents', methods=['GET'])
 def api_documents():
+    """获取文档列表API"""
     try:
-        from ocr_handler import get_uploaded_documents
+        from app.services import get_uploaded_documents
         docs = get_uploaded_documents()
         return jsonify({'success': True, 'documents': docs})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
 @app.route('/api/document/<int:index>', methods=['DELETE'])
 def api_remove_document(index):
+    """删除文档API"""
     try:
-        from ocr_handler import remove_document
+        from app.services import remove_document
         success = remove_document(index)
         if success:
             return jsonify({'success': True, 'message': '已删除文档'})
@@ -175,34 +178,35 @@ def api_remove_document(index):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
 @app.route('/api/clear-documents', methods=['POST'])
 def api_clear_documents():
+    """清除所有文档API"""
     global reference_content
     reference_content = ""
     
     try:
-        from ocr_handler import clear_uploaded_documents
+        from app.services import clear_uploaded_documents, clear_documents
         clear_uploaded_documents()
-    except:
-        pass
-    
-    try:
-        from rag_knowledge import clear_documents
         clear_documents()
     except:
         pass
     
     return jsonify({'success': True, 'message': '已清除所有文档'})
 
+
 @app.route('/api/download/<filename>', methods=['GET'])
 def download_file(filename):
+    """下载单个文件API"""
     filepath = os.path.join(OUTPUT_DIR_ABS, filename)
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'error': '文件不存在'}), 404
     return send_file(filepath, as_attachment=True, download_name=filename)
 
+
 @app.route('/api/download-zip', methods=['GET'])
 def download_zip():
+    """打包下载所有文件API"""
     if not os.path.exists(OUTPUT_DIR_ABS):
         return jsonify({'success': False, 'error': '没有文件'}), 404
     
@@ -218,12 +222,23 @@ def download_zip():
     
     return send_file(temp_zip.name, as_attachment=True, download_name='游戏策划案.zip')
 
+
 def signal_handler(signum=None, frame=None):
+    """信号处理器"""
     print("\n正在清理...")
     cleanup()
     sys.exit(0)
 
+
 def run_web_app(host='0.0.0.0', port=5000, debug=False):
+    """
+    启动Web应用
+    
+    Args:
+        host: 监听地址
+        port: 监听端口
+        debug: 是否开启调试模式
+    """
     if os.path.exists(OUTPUT_DIR_ABS):
         try:
             shutil.rmtree(OUTPUT_DIR_ABS)
@@ -231,27 +246,17 @@ def run_web_app(host='0.0.0.0', port=5000, debug=False):
         except:
             pass
     
-    signal.signal(signal.SIGTERM, signal_handler)
+    if os.name != 'nt':
+        signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
     
     print(f"服务启动: http://{host}:{port}")
     print("正在初始化RAG知识库（后台运行）...")
     
-    import threading
     rag_thread = threading.Thread(target=init_rag, daemon=True)
     rag_thread.start()
     
     try:
-        app.run(host=host, port=port, debug=debug, use_reloader=False)
+        app.run(host=host, port=port, debug=True, use_reloader=False)
     finally:
         cleanup()
-
-if __name__ == '__main__':
-    import sys
-    port = 5000
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-        except:
-            pass
-    run_web_app(port=port)

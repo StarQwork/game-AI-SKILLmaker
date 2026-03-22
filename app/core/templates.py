@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-游戏策划核心模块 - 集成RAG和OCR
+模板模块 - 策划案角色模板定义
 """
 
-import requests
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Optional
+from typing import Dict, List, Any
 
-OUTPUT_DIR = "游戏任务书"
-
-DEFAULT_ROLES = ["programmer", "artist", "audio", "writer"]
-
-ROLE_TEMPLATES = {
+ROLE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "programmer": {
         "filename": "1_程序员.md",
         "role_name": "程序员",
@@ -259,123 +252,9 @@ description: "生成剧情与文本策划案；在确立世界观与任务线时
     }
 }
 
-RAG_INITIALIZED = False
-
-def init_rag():
-    global RAG_INITIALIZED
-    try:
-        from rag_knowledge import init_rag as rag_init
-        RAG_INITIALIZED = rag_init()
-        return RAG_INITIALIZED
-    except ImportError:
-        return False
-
-def call_api(question: str, api_key: str, model_id: str = "deepseek-chat", base_url: str = "https://api.deepseek.com/v1/chat/completions", max_retries: int = 3) -> str:
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": model_id,
-        "messages": [{"role": "user", "content": question}],
-        "temperature": 0.7,
-        "max_tokens": 2000
-    }
-    
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(base_url, headers=headers, json=data, timeout=60)
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"]
-            if response.status_code == 429:
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(2 ** attempt)
-                    continue
-                return f"API错误：请求过于频繁，请稍后再试"
-            if response.status_code >= 500:
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(1)
-                    continue
-                return f"API错误：{response.status_code}"
-            return f"API错误：{response.status_code}"
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                continue
-            return "请求错误：连接超时，请检查网络"
-        except requests.exceptions.ConnectionError:
-            if attempt < max_retries - 1:
-                import time
-                time.sleep(1)
-                continue
-            return "请求错误：网络连接失败"
-        except Exception as e:
-            return f"请求错误：{e}"
-    
-    return "请求错误：已达到最大重试次数"
-
-def generate_single(game_idea: str, role: str, api_key: str, model_id: str, base_url: str, use_rag: bool = True, reference_content: str = "") -> Dict[str, Any]:
-    if role not in ROLE_TEMPLATES:
-        return {"success": False, "error": f"未知角色: {role}"}
-    
-    info = ROLE_TEMPLATES[role]
-    question = info["template"].format(game_idea=game_idea)
-    
-    if use_rag and RAG_INITIALIZED:
-        try:
-            from rag_knowledge import enhance_prompt
-            question = enhance_prompt(game_idea, role, info["template"])
-        except:
-            pass
-    
-    if reference_content:
-        question = f"""参考以下用户上传的策划案内容：
-
-{reference_content[:2000]}
-
----
-
-{question}
-
-请结合参考内容，生成更符合用户需求的策划案。"""
-    
-    answer = call_api(question, api_key, model_id, base_url)
-    
-    if answer.startswith("API错误") or answer.startswith("请求错误"):
-        return {"success": False, "error": answer, "role": info["role_name"]}
-    return {"success": True, "role": info["role_name"], "filename": info["filename"], "content": answer}
-
-def generate_all(game_idea: str, api_key: str, model_id: str, base_url: str, use_rag: bool = True, reference_content: str = "", roles: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    roles = roles or DEFAULT_ROLES
-    workers = max(1, min(len(roles), 6))
-    results: List[Dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(generate_single, game_idea, role, api_key, model_id, base_url, use_rag, reference_content): role
-            for role in roles if role in ROLE_TEMPLATES
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
-    by_role_name: Dict[str, Dict[str, Any]] = {r.get("role"): r for r in results if r}
-    ordered = []
-    for role in roles:
-        if role in ROLE_TEMPLATES:
-            rn = ROLE_TEMPLATES[role]["role_name"]
-            if rn in by_role_name:
-                ordered.append(by_role_name[rn])
-    return ordered
-
-def save_file(filename: str, content: str, output_dir: Optional[str] = None) -> str:
-    directory = output_dir or OUTPUT_DIR
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    filepath = os.path.join(directory, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-    return filepath
 
 def get_available_roles() -> Dict[str, Dict[str, str]]:
+    """获取所有可用角色"""
     return {
         role_key: {
             "name": role_info["role_name"],
@@ -385,28 +264,8 @@ def get_available_roles() -> Dict[str, Dict[str, str]]:
         for role_key, role_info in ROLE_TEMPLATES.items()
     }
 
-def get_default_roles() -> List[str]:
-    return DEFAULT_ROLES
 
-def generate_game_plan(game_idea: str, api_key: str, model_id: Optional[str] = None, base_url: Optional[str] = None, output_dir: Optional[str] = None, use_rag: bool = True, reference_content: str = "", roles: Optional[List[str]] = None) -> Dict[str, Any]:
-    if not game_idea or len(game_idea.strip()) < 3:
-        return {"success": False, "error": "游戏想法太短"}
-    
-    model_id = model_id or "deepseek-chat"
-    base_url = base_url or "https://api.deepseek.com/v1/chat/completions"
-    
-    results = generate_all(game_idea, api_key, model_id, base_url, use_rag, reference_content, roles)
-    
-    saved_files = []
-    errors = []
-    for r in results:
-        if r["success"]:
-            filepath = save_file(r["filename"], r["content"], output_dir)
-            saved_files.append({"role": r["role"], "filename": r["filename"], "filepath": filepath, "content": r["content"]})
-        else:
-            errors.append({"role": r.get("role", "未知"), "error": r.get("error", "未知错误")})
-    
-    if not saved_files and errors:
-        return {"success": False, "error": "; ".join([f"{e['role']}: {e['error']}" for e in errors])}
-    
-    return {"success": True, "saved_files": saved_files, "errors": errors, "output_dir": output_dir or OUTPUT_DIR}
+def get_default_roles() -> List[str]:
+    """获取默认角色列表"""
+    from .config import DEFAULT_ROLES
+    return DEFAULT_ROLES

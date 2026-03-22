@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-OCR识别模块 - 支持Word和PDF文档识别
+OCR服务模块 - 文档解析服务
+支持PDF、Word、Markdown格式
 """
 
 import os
@@ -22,9 +23,11 @@ try:
 except ImportError:
     pass
 
-uploaded_documents = []
+uploaded_documents: List[Dict] = []
+
 
 def extract_text_from_pdf(file_path: str) -> str:
+    """从PDF提取文本"""
     if not PYMUPDF_AVAILABLE:
         return "错误：请安装 pymupdf (pip install pymupdf)"
     
@@ -38,7 +41,9 @@ def extract_text_from_pdf(file_path: str) -> str:
     except Exception as e:
         return f"PDF解析错误: {e}"
 
+
 def extract_text_from_docx(file_path: str) -> str:
+    """从Word文档提取文本"""
     if not PYTHON_DOCX_AVAILABLE:
         return "错误：请安装 python-docx (pip install python-docx)"
     
@@ -49,14 +54,26 @@ def extract_text_from_docx(file_path: str) -> str:
     except Exception as e:
         return f"Word解析错误: {e}"
 
+
 def extract_text_from_md(file_path: str) -> str:
+    """从Markdown文件提取文本"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read().strip()
     except Exception as e:
         return f"Markdown解析错误: {e}"
 
+
 def extract_text_from_file(file_path: str) -> Dict:
+    """
+    从文件提取文本
+    
+    Args:
+        file_path: 文件路径
+    
+    Returns:
+        包含提取结果的字典
+    """
     ext = os.path.splitext(file_path)[1].lower()
     filename = os.path.basename(file_path)
     
@@ -101,22 +118,38 @@ def extract_text_from_file(file_path: str) -> Dict:
     
     return result
 
+
 def get_uploaded_documents() -> List[Dict]:
+    """获取已上传文档列表"""
     return list(uploaded_documents)
 
+
 def remove_document(index: int) -> bool:
+    """删除指定文档"""
     global uploaded_documents
     if 0 <= index < len(uploaded_documents):
         uploaded_documents.pop(index)
         return True
     return False
 
+
 def clear_uploaded_documents():
+    """清除所有上传文档"""
     global uploaded_documents
     uploaded_documents = []
     print("已清除上传文档记录")
 
+
 def process_upload_file(file_storage) -> Dict:
+    """
+    处理上传的文件
+    
+    Args:
+        file_storage: Flask文件存储对象
+    
+    Returns:
+        处理结果字典
+    """
     try:
         filename = file_storage.filename
         ext = os.path.splitext(filename)[1].lower()
